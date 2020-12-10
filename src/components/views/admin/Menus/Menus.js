@@ -1,234 +1,245 @@
-import React from 'react';
-import PropTypes from 'prop-types';
-import { Alert, 
-    ButtonDropdown,  
-    DropdownToggle,
-    DropdownMenu,
-    DropdownItem
-} from 'reactstrap';
-import Filter from 'src/components/common/Filter';
-import Content from 'src/components/common/Content';
-import MenusTable from './components/MenusTable';
-import CreateModal from './components/Create';
-import EditModal from './components/Edit';
-import DeleteModal from './components/Delete';
-import MenuTypes from './components/MenuTypes';
-import axios from 'src/axios';
-import './styles.css';
+import React from "react";
+import PropTypes from "prop-types";
+import {
+  Alert,
+  ButtonDropdown,
+  DropdownToggle,
+  DropdownMenu,
+  DropdownItem,
+} from "reactstrap";
+import Filter from "src/components/common/Filter";
+import Content from "src/components/common/Content";
+import MenusTable from "./components/MenusTable";
+import CreateModal from "./components/Create";
+import EditModal from "./components/Edit";
+import DeleteModal from "./components/Delete";
+import MenuTypes from "./components/MenuTypes";
+import axios from "axios";
+import "./styles.css";
 
-import { singleError, paginationInfo } from 'src/utils';
+import { singleError, paginationInfo } from "src/utils";
 
 class Menus extends React.Component {
+  bubbleBlocked = false;
 
-    bubbleBlocked = false;
+  constructor(props) {
+    super(props);
+    this.state = {
+      page: 1,
+      data: {},
+      search: "",
+      perPage: 5,
+      deleteIsOpen: false,
+      editIsOpen: false,
+      menuTypesIsOpen: false,
+      toDelete: {},
+      toEdit: {},
+    };
+  }
 
-    constructor(props) {
-        super(props);
-        this.state = {
-            page: 1,
-            data: {},
-            search: '',
-            perPage: 5,
-            deleteIsOpen: false,
-            editIsOpen: false,
-            menuTypesIsOpen: false,
-            toDelete: {},
-            toEdit: {}
+  componentWillMount() {
+    this.fetchMenus();
+  }
+
+  fetchMenus = (config = {}) => {
+    let {
+      page = this.state.page,
+      perPage = this.state.perPage,
+      search = this.state.search,
+    } = config;
+    const link = `/menu-items?page=${page}&search=${search}&per_page=${perPage}&time=today`;
+    this.props.setLoading(true);
+
+    axios.auth();
+    axios
+      .get(link, this.state)
+      .then(({ data }) => {
+        const pageInfo = paginationInfo(data);
+        this.setState({
+          ...this.state,
+          page: pageInfo.currentPage,
+          data,
+        });
+        this.props.setLoading(false);
+
+        if (pageInfo.currentCount === 0 && pageInfo.currentPage !== 1) {
+          this.fetchMenus({
+            page: pageInfo.currentPage - 1,
+          });
         }
-    }
-
-    componentWillMount() {
-        this.fetchMenus()
-    }
-
-    fetchMenus = (config = {}) => {
-        let { 
-            page = this.state.page, 
-            perPage = this.state.perPage,
-            search = this.state.search, 
-        } = config;
-        const link = `/menu-items?page=${page}&search=${search}&per_page=${perPage}&time=today`;
-        this.props.setLoading(true);
-
-        axios.auth();
-        axios.get(link, this.state).then(({ data }) => {
-            const pageInfo = paginationInfo(data);
-            this.setState({
-                ...this.state,
-                page: pageInfo.currentPage,
-                data,
-            });
-            this.props.setLoading(false);
-
-            if (pageInfo.currentCount === 0 && pageInfo.currentPage !== 1) {
-                this.fetchMenus({
-                    page: pageInfo.currentPage - 1
-                })
-            }
-        }).catch(({ response }) => {
-            this.setState({
-                ...this.state,
-                error: response,
-            })
-            this.props.setLoading(false);
-        })
-    }
-
-    blockBubbling = () => {
-        /** 
-         * workaround e.stopPropagation()
-         * @see https://github.com/facebook/react/issues/1691
-         */
-        this.bubbleBlocked = true;
-        setTimeout(() => {
-            this.bubbleBlocked = false;
-        }, 500);
-
-    }
-
-    toggleMenuTypes = (e) => {
-        this.blockBubbling();
+      })
+      .catch(({ response }) => {
         this.setState({
-            ...this.state,
-            manageIsOpen: false,
-            menuTypesIsOpen: !this.state.menuTypesIsOpen
+          ...this.state,
+          error: response,
         });
-    }
+        this.props.setLoading(false);
+      });
+  };
 
-    toggleManage = (e) => {
-        if (this.bubbleBlocked) 
-            return;
-        this.setState({
-            ...this.state,
-            manageIsOpen: !this.state.manageIsOpen,
-        });
-    }
-    
-    toggleCreate = (e) => {
-        this.blockBubbling();
-        this.setState({
-            ...this.state,
-            manageIsOpen: false,
-            createIsOpen: !this.state.createIsOpen,
-        });
-    }
+  blockBubbling = () => {
+    /**
+     * workaround e.stopPropagation()
+     * @see https://github.com/facebook/react/issues/1691
+     */
+    this.bubbleBlocked = true;
+    setTimeout(() => {
+      this.bubbleBlocked = false;
+    }, 500);
+  };
 
-    toggleEdit = (menuItem) => {
-        this.setState({
-            ...this.state,
-            toEdit: menuItem || {},
-            editIsOpen: !this.state.editIsOpen
-        });
-    }
+  toggleMenuTypes = (e) => {
+    this.blockBubbling();
+    this.setState({
+      ...this.state,
+      manageIsOpen: false,
+      menuTypesIsOpen: !this.state.menuTypesIsOpen,
+    });
+  };
 
-    toggleDelete = (menuItem) => {
-        this.setState({
-            ...this.state,
-            toDelete: menuItem || {},
-            deleteIsOpen: !this.state.deleteIsOpen
-        });
-    }
+  toggleManage = (e) => {
+    if (this.bubbleBlocked) return;
+    this.setState({
+      ...this.state,
+      manageIsOpen: !this.state.manageIsOpen,
+    });
+  };
 
-    onFilter = (text) => {
-        this.setState({
-            ...this.state,
-            search: text,
-        });
-        this.fetchMenus({search: text});
-    }
+  toggleCreate = (e) => {
+    this.blockBubbling();
+    this.setState({
+      ...this.state,
+      manageIsOpen: false,
+      createIsOpen: !this.state.createIsOpen,
+    });
+  };
 
-    onPageChange = (page) => {
-        this.setState({
-            ...this.state,
-            page,
-        });
+  toggleEdit = (menuItem) => {
+    this.setState({
+      ...this.state,
+      toEdit: menuItem || {},
+      editIsOpen: !this.state.editIsOpen,
+    });
+  };
 
-        this.fetchMenus({
-            page: page,
-            search: this.state.search
-        });
-    }
+  toggleDelete = (menuItem) => {
+    this.setState({
+      ...this.state,
+      toDelete: menuItem || {},
+      deleteIsOpen: !this.state.deleteIsOpen,
+    });
+  };
 
-    render() {
-        const { 
-            data,
-            error,
-            pageInfo,
-            toEdit,
-            editIsOpen,
-            createIsOpen,
-            toDelete,
-            deleteIsOpen,
-            manageIsOpen,
-            menuTypesIsOpen,
-        } = this.state;
+  onFilter = (text) => {
+    this.setState({
+      ...this.state,
+      search: text,
+    });
+    this.fetchMenus({ search: text });
+  };
 
-        const contentTop = (
-            <div className="col-12 mb-2 pr-0 pr-sm-2">
-                <h5 className="d-inline-block">Today's Menu</h5>
-                <ButtonDropdown className="float-right" isOpen={manageIsOpen} toggle={this.toggleManage}>
-                    <DropdownToggle className="btn-secondary" caret>
-                        Manage
-                    </DropdownToggle>
-                    <DropdownMenu>
-                        <DropdownItem onClick={this.toggleMenuTypes}>Manage Menus</DropdownItem>
-                        <DropdownItem onClick={this.toggleCreate}>Add Meal To Menu</DropdownItem>
-                    </DropdownMenu>
-                </ButtonDropdown>
+  onPageChange = (page) => {
+    this.setState({
+      ...this.state,
+      page,
+    });
 
-            </div>
-        );
+    this.fetchMenus({
+      page: page,
+      search: this.state.search,
+    });
+  };
 
-        const contentFilter = (
-            <Filter onFilter={this.onFilter} />
-        );
+  render() {
+    const {
+      data,
+      error,
+      pageInfo,
+      toEdit,
+      editIsOpen,
+      createIsOpen,
+      toDelete,
+      deleteIsOpen,
+      manageIsOpen,
+      menuTypesIsOpen,
+    } = this.state;
 
-        return (
-            <Content 
-                {...this.props}
-                contentTop={contentTop} 
-                contentFilter={contentFilter}>
-            
-                    { error && <Alert color="danger"> { singleError(error) }</Alert> }
-                     <MenusTable 
-                         data={data}
-                         pageInfo={pageInfo}
-                         onPrev={this.onPageChange}
-                         onNext={this.onPageChange}
-                         toggleEdit={this.toggleEdit} 
-                         toggleDelete={this.toggleDelete} />
+    const contentTop = (
+      <div className="col-12 mb-2 pr-0 pr-sm-2">
+        <h5 className="d-inline-block">Today's Menu</h5>
+        <ButtonDropdown
+          className="float-right"
+          isOpen={manageIsOpen}
+          toggle={this.toggleManage}
+        >
+          <DropdownToggle className="btn-secondary" caret>
+            Manage
+          </DropdownToggle>
+          <DropdownMenu>
+            <DropdownItem onClick={this.toggleMenuTypes}>
+              Manage Menus
+            </DropdownItem>
+            <DropdownItem onClick={this.toggleCreate}>
+              Add Meal To Menu
+            </DropdownItem>
+          </DropdownMenu>
+        </ButtonDropdown>
+      </div>
+    );
 
-                    <CreateModal 
-                        {...this.props}
-                        onChange={this.fetchMenus}
-                        isOpen={createIsOpen} 
-                        toggle={this.toggleCreate} />
+    const contentFilter = <Filter onFilter={this.onFilter} />;
 
-                    <EditModal 
-                        {...this.props}
-                        menuItem={toEdit} 
-                        onChange={this.fetchMenus}
-                        isOpen={editIsOpen} 
-                        toggle={this.toggleEdit}/>
+    return (
+      <Content
+        {...this.props}
+        contentTop={contentTop}
+        contentFilter={contentFilter}
+      >
+        {error && <Alert color="danger"> {singleError(error)}</Alert>}
+        <MenusTable
+          data={data}
+          pageInfo={pageInfo}
+          onPrev={this.onPageChange}
+          onNext={this.onPageChange}
+          toggleEdit={this.toggleEdit}
+          toggleDelete={this.toggleDelete}
+        />
 
-                    <DeleteModal 
-                        {...this.props}
-                        menuItem={toDelete} 
-                        onChange={this.fetchMenus}
-                        isOpen={deleteIsOpen} 
-                        toggle={this.toggleDelete}/>
+        <CreateModal
+          {...this.props}
+          onChange={this.fetchMenus}
+          isOpen={createIsOpen}
+          toggle={this.toggleCreate}
+        />
 
-                    <MenuTypes
-                        {...this.props}
-                        isOpen={menuTypesIsOpen}
-                        toggle={this.toggleMenuTypes}/>
-            </Content>
-        );
-    }
+        <EditModal
+          {...this.props}
+          menuItem={toEdit}
+          onChange={this.fetchMenus}
+          isOpen={editIsOpen}
+          toggle={this.toggleEdit}
+        />
+
+        <DeleteModal
+          {...this.props}
+          menuItem={toDelete}
+          onChange={this.fetchMenus}
+          isOpen={deleteIsOpen}
+          toggle={this.toggleDelete}
+        />
+
+        <MenuTypes
+          {...this.props}
+          isOpen={menuTypesIsOpen}
+          toggle={this.toggleMenuTypes}
+        />
+      </Content>
+    );
+  }
 }
 
 Menus.propTypes = {
-    setLoading: PropTypes.func.isRequired
-}
+  setLoading: PropTypes.func.isRequired,
+};
 
 export default Menus;
